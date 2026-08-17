@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control de Acceso al Centro de Datos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+  <main id="loginView" class="login-shell">
+    <section class="login-card">
+      <div class="brand-mark">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h1>Control de Acceso al Centro de Datos</h1>
+
+      <form id="loginForm" class="form-stack">
+        <label>
+          <span>Usuario institucional</span>
+          <div class="input-icon">
+            <i class="fa-regular fa-user"></i>
+            <input id="loginUser" name="nombre_usuario" autocomplete="username" required placeholder="usuario">
+          </div>
+        </label>
+        <label>
+          <span>Contrasena</span>
+          <div class="input-icon">
+            <i class="fa-solid fa-lock"></i>
+            <input id="loginPass" name="clave" type="password" autocomplete="current-password" required placeholder="********">
+          </div>
+        </label>
+        <button class="btn primary full" type="submit">
+          <i class="fa-solid fa-right-to-bracket"></i>
+          Iniciar sesion
+        </button>
+      </form>
+      <p class="security-note"><i class="fa-solid fa-circle-info"></i> Acceso autorizado solo para personal registrado.</p>
+    </section>
+  </main>
+
+  <main id="appView" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="side-brand">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>CONTROL DE<br>ACCESO</span>
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Expandir o contraer menu">
+          <i class="fa-solid fa-bars-staggered"></i>
+        </button>
+      </div>
+      <div class="user-card">
+        <i class="fa-regular fa-user"></i>
+        <div>
+          <strong id="sideUser">Admin Sistema</strong>
+          <span>Sede Central</span>
+        </div>
+        <aside class="user-flyout">
+          <strong id="flyoutUser">Admin Sistema</strong>
+          <span>Sede Central</span>
+          <small>Usuario autenticado</small>
+        </aside>
+      </div>
+      <nav class="side-nav">
+        <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Panel Control</span></button>
+        <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-id-card-clip"></i><span>Visitantes</span></button>
+        <button class="nav-item" data-screen="records"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Consulta</span></button>
+        <button class="nav-item" data-screen="settings"><i class="fa-solid fa-gear"></i><span>Configuracion</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="nav-item logout-item"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Cerrar Sesion</span></button>
+      </div>
+    </aside>
+
+    <section class="content-shell">
+      <header class="topbar">
+        <div>
+          <p id="topContext" class="top-context">Panel Control</p>
+          <h2 id="pageTitle">Resumen de Actividad</h2>
+        </div>
+        <div class="top-actions">
+          <span class="datetime-pill"><i class="fa-regular fa-clock"></i><span id="fechaHoraActual">--/--/---- --:--:--</span></span>
+          <span class="user-pill"><i class="fa-regular fa-circle-user"></i><span id="topUser">Usuario Administrativo</span></span>
+        </div>
+      </header>
+
+      <section id="screen-dashboard" class="screen active">
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span>Ingresos Registrados</span>
+            <strong id="metricTotal">0</strong>
+            <small>Hoy</small>
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          </article>
+          <article class="metric-card accent">
+            <span>Dentro del DC</span>
+            <strong id="metricInside">0</strong>
+            <small>Activos ahora</small>
+            <i class="fa-solid fa-server"></i>
+          </article>
+          <article class="metric-card">
+            <span>Salidas Registradas</span>
+            <strong id="metricExits">0</strong>
+            <small>Hoy</small>
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </article>
+          <article class="metric-card warn">
+            <span>Pendientes Salida</span>
+            <strong id="metricPending">0</strong>
+            <small>Requieren verificacion</small>
+            <i class="fa-regular fa-clock"></i>
+          </article>
+        </div>
+
+        <h3 class="section-title">Accesos Rapidos</h3>
+        <div class="quick-grid">
+          <button class="quick-card primary-card" data-screen="newRecord"><i class="fa-solid fa-user-plus"></i><span>Nuevo Registro</span></button>
+          <button class="quick-card" data-screen="records"><i class="fa-regular fa-rectangle-list"></i><span>Registros del dia</span></button>
+          <button class="quick-card" data-screen="records"><i class="fa-solid fa-magnifying-glass"></i><span>Buscar Registros</span></button>
+          <button class="quick-card"><i class="fa-solid fa-download"></i><span>Exportar Reporte</span></button>
+        </div>
+
+        <h3 class="section-title">Actividad Reciente</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Visitante</th>
+                <th>DNI/ID</th>
+                <th>Empresa / Area</th>
+                <th>Hora Ingreso</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="recentRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="screen-newRecord" class="screen">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Formulario de Ingreso</h2>
+              <p>Complete los datos para autorizar el acceso a las instalaciones.</p>
+            </div>
+          </div>
+          <form id="recordForm" class="record-form">
+            <fieldset>
+              <legend><i class="fa-regular fa-calendar"></i>Datos Generales</legend>
+              <div class="form-grid three">
+                <label><span>Fecha de Ingreso</span><input name="fecha_acceso" type="date" required></label>
+                <label><span>Hora Ingreso</span><input name="hora_ingreso" type="time" required></label>
+                <label><span>Hora Salida</span><input name="hora_salida" type="time"></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend><i class="fa-solid fa-user"></i>Datos del Visitante</legend>
+              <div class="form-grid">
+                <label class="span-2"><span>Nombres y Apellidos</span><input name="nombres_visitante" required placeholder="Ingrese nombres completos"></label>
+                <label><span>DNI / Documento</span><input name="documento_visitante" placeholder="Ej. 12345678"></label>
+                <label><span>Area / Empresa Representada</span><input name="empresa_o_area" required placeholder="Empresa, oficina o institucion"></label>
+                <label><span>Area Destino</span><input name="area_destino" placeholder="Centro de datos principal"></label>
+                <label><span>Motivo de Acceso</span><select name="motivo_acceso" required>
+                  <option value="">Seleccione motivo</option>
+                  <option>Mantenimiento preventivo</option>
+                  <option>Mantenimiento correctivo</option>
+                  <option>Inspeccion</option>
+                  <option>Soporte tecnico</option>
+                  <option>Auditoria</option>
+                  <option>Otro</option>
+                </select></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend><i class="fa-solid fa-clipboard-check"></i>Responsabilidad y Control</legend>
+              <div class="form-grid">
+                <label><span>Personal OGITIC que recibe</span><input name="personal_ogitic" required placeholder="Nombre del autorizante"></label>
+                <label class="span-2"><span>Observaciones / Equipos ingresados</span><textarea name="observaciones" rows="4" placeholder="Detalle laptops, herramientas u observaciones relevantes"></textarea></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend><i class="fa-solid fa-signature"></i>Firmas y Archivos</legend>
+              <div class="form-grid">
+                <label class="file-control">
+                  <span>Firma usuario / proveedor</span>
+                  <input id="firmaVisitante" name="firma_visitante" type="file" accept="image/*,application/pdf">
+                  <span class="file-button"><i class="fa-solid fa-cloud-arrow-up"></i>Seleccionar archivo</span>
+                  <small id="nombreFirmaVisitante">Ningun archivo seleccionado</small>
+                  <figure id="vistaFirmaVisitante" class="file-preview hidden"></figure>
+                </label>
+                <label class="file-control">
+                  <span>Firma administrador OGITIC</span>
+                  <input id="firmaOgitic" name="firma_ogitic" type="file" accept="image/*,application/pdf">
+                  <span class="file-button"><i class="fa-solid fa-cloud-arrow-up"></i>Seleccionar archivo</span>
+                  <small id="nombreFirmaOgitic">Ningun archivo seleccionado</small>
+                  <figure id="vistaFirmaOgitic" class="file-preview hidden"></figure>
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="form-actions">
+              <button class="btn ghost" type="reset"><i class="fa-solid fa-eraser"></i>Limpiar</button>
+              <button class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i>Guardar Registro</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="screen-records" class="screen">
+        <div class="screen-head">
+          <div>
+            <h2>Busqueda y Reportes</h2>
+            <p>Consulte el historial de accesos y genere reportes detallados.</p>
+          </div>
+          <div class="report-actions">
+            <button class="btn ghost"><i class="fa-regular fa-file-excel"></i>Excel</button>
+            <button class="btn ghost"><i class="fa-regular fa-file-pdf"></i>PDF</button>
+            <button class="btn ghost"><i class="fa-solid fa-print"></i>Imprimir</button>
+          </div>
+        </div>
+
+        <form id="filterForm" class="filter-panel">
+          <strong><i class="fa-solid fa-filter"></i>Filtros de Busqueda</strong>
+          <div class="form-grid three">
+            <label><span>Desde</span><input name="fecha_desde" type="date"></label>
+            <label><span>Hasta</span><input name="fecha_hasta" type="date"></label>
+            <label><span>Nombre / DNI / Empresa</span><input name="busqueda" placeholder="Ej. Juan Perez"></label>
+            <label><span>Estado</span><select name="estado"><option value="">Todos</option><option>DENTRO</option><option>SALIO</option><option>PENDIENTE</option></select></label>
+            <button class="btn primary search-btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i>Buscar</button>
+          </div>
+        </form>
+
+        <div class="table-wrap consulta-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Fecha</th>
+                <th>Visitante</th>
+                <th>Documento</th>
+                <th>Empresa / Area</th>
+                <th>Motivo</th>
+                <th>Ingreso</th>
+                <th>Salida</th>
+                <th>Estado</th>
+                <th>Accion</th>
+              </tr>
+            </thead>
+            <tbody id="recordList"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="screen-detail" class="screen">
+        <div class="detail-toolbar">
+          <button class="btn icon-only" data-screen="records"><i class="fa-solid fa-arrow-left"></i></button>
+          <strong id="detailCode">Registro de Acceso</strong>
+          <div>
+            <button class="btn ghost"><i class="fa-solid fa-print"></i>Imprimir</button>
+            <button id="markExitBtn" class="btn primary"><i class="fa-solid fa-arrow-right-from-bracket"></i>Marcar Salida</button>
+          </div>
+        </div>
+        <div id="detailContent" class="detail-grid"></div>
+      </section>
+
+      <section id="screen-settings" class="screen">
+        <div class="panel compact">
+          <h2>Configuracion</h2>
+          <p>Parametros visibles del prototipo. La conexion real se define en el archivo `.env` del backend.</p>
+          <div class="settings-list">
+            <span><i class="fa-solid fa-database"></i>PostgreSQL: cacd-dp</span>
+            <span><i class="fa-solid fa-network-wired"></i>LDAP / Directorio Activo preparado</span>
+            <span><i class="fa-solid fa-server"></i>Puerto backend: 8065</span>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <nav class="mobile-toolbar">
+      <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Panel</span></button>
+      <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-square-plus"></i><span>Registrar</span></button>
+      <button class="nav-item" data-screen="records"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Consulta</span></button>
+      <button class="nav-item" data-screen="settings"><i class="fa-solid fa-circle-user"></i><span>Perfil</span></button>
+    </nav>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

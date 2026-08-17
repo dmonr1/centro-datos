@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS auditoria_sistema CASCADE;
+DROP TABLE IF EXISTS registros_acceso CASCADE;
+DROP TABLE IF EXISTS usuarios_app CASCADE;
+DROP SEQUENCE IF EXISTS secuencia_codigo_acceso CASCADE;
