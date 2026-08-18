@@ -9,15 +9,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/assets/css/styles.css">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=20260818-listado-edicion">
 </head>
 <body>
   <main id="loginView" class="login-shell">
     <section class="login-card">
-      <div class="brand-mark">
-        <i class="fa-solid fa-shield-halved"></i>
+      <div class="login-brand">
+        <div class="brand-mark">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <span>Centro de Datos</span>
+          <strong>Control de Acceso</strong>
+        </div>
       </div>
-      <h1>Control de Acceso al Centro de Datos</h1>
 
       <form id="loginForm" class="form-stack">
         <label>
@@ -28,18 +33,18 @@
           </div>
         </label>
         <label>
-          <span>Contrasena</span>
+          <span>Contraseña</span>
           <div class="input-icon">
             <i class="fa-solid fa-lock"></i>
-            <input id="loginPass" name="clave" type="password" autocomplete="current-password" required placeholder="********">
+            <input id="loginPass" name="clave" type="password" autocomplete="current-password" required placeholder="Clave de acceso">
           </div>
         </label>
         <button class="btn primary full" type="submit">
           <i class="fa-solid fa-right-to-bracket"></i>
-          Iniciar sesion
+          Iniciar sesión
         </button>
       </form>
-      <p class="security-note"><i class="fa-solid fa-circle-info"></i> Acceso autorizado solo para personal registrado.</p>
+      <p class="security-note"><i class="fa-solid fa-lock"></i> Acceso protegido por Directorio Activo.</p>
     </section>
   </main>
 
@@ -67,8 +72,8 @@
       <nav class="side-nav">
         <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Panel Control</span></button>
         <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-id-card-clip"></i><span>Visitantes</span></button>
+        <button class="nav-item" data-screen="listado"><i class="fa-solid fa-list-check"></i><span>Listado</span></button>
         <button class="nav-item" data-screen="records"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Consulta</span></button>
-        <button class="nav-item" data-screen="settings"><i class="fa-solid fa-gear"></i><span>Configuracion</span></button>
       </nav>
       <div class="sidebar-footer">
         <button id="logoutBtn" class="nav-item logout-item"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Cerrar Sesion</span></button>
@@ -118,7 +123,7 @@
         <h3 class="section-title">Accesos Rapidos</h3>
         <div class="quick-grid">
           <button class="quick-card primary-card" data-screen="newRecord"><i class="fa-solid fa-user-plus"></i><span>Nuevo Registro</span></button>
-          <button class="quick-card" data-screen="records"><i class="fa-regular fa-rectangle-list"></i><span>Registros del dia</span></button>
+          <button class="quick-card" data-screen="listado"><i class="fa-regular fa-rectangle-list"></i><span>Listado de registros</span></button>
           <button class="quick-card" data-screen="records"><i class="fa-solid fa-magnifying-glass"></i><span>Buscar Registros</span></button>
           <button class="quick-card"><i class="fa-solid fa-download"></i><span>Exportar Reporte</span></button>
         </div>
@@ -154,7 +159,16 @@
               <div class="form-grid three">
                 <label><span>Fecha de Ingreso</span><input name="fecha_acceso" type="date" required></label>
                 <label><span>Hora Ingreso</span><input name="hora_ingreso" type="time" required></label>
-                <label><span>Hora Salida</span><input name="hora_salida" type="time"></label>
+                <label>
+                  <span class="label-row">
+                    Hora Salida
+                    <label class="inline-check">
+                      <input id="pendienteSalida" type="checkbox" checked>
+                      <span>Pendiente de salida</span>
+                    </label>
+                  </span>
+                  <input id="horaSalida" name="hora_salida" type="time" disabled>
+                </label>
               </div>
             </fieldset>
 
@@ -180,7 +194,7 @@
             <fieldset>
               <legend><i class="fa-solid fa-clipboard-check"></i>Responsabilidad y Control</legend>
               <div class="form-grid">
-                <label><span>Personal OGITIC que recibe</span><input name="personal_ogitic" required placeholder="Nombre del autorizante"></label>
+                <label><span>Personal OGITIC que recibe</span><input id="personalOgitic" name="personal_ogitic" required readonly placeholder="Usuario autenticado"></label>
                 <label class="span-2"><span>Observaciones / Equipos ingresados</span><textarea name="observaciones" rows="4" placeholder="Detalle laptops, herramientas u observaciones relevantes"></textarea></label>
               </div>
             </fieldset>
@@ -188,20 +202,32 @@
             <fieldset>
               <legend><i class="fa-solid fa-signature"></i>Firmas y Archivos</legend>
               <div class="form-grid">
-                <label class="file-control">
+                <div class="file-control signature-control" data-signature="visitante">
                   <span>Firma usuario / proveedor</span>
                   <input id="firmaVisitante" name="firma_visitante" type="file" accept="image/*,application/pdf">
-                  <span class="file-button"><i class="fa-solid fa-cloud-arrow-up"></i>Seleccionar archivo</span>
+                  <div class="signature-buttons">
+                    <button class="file-button" type="button" data-open-file="firmaVisitante"><i class="fa-solid fa-cloud-arrow-up"></i>Seleccionar archivo</button>
+                  </div>
+                  <button class="signature-draw-button" type="button" data-open-signature="visitante" onclick="abrirModalFirma('visitante')"><i class="fa-solid fa-pen-nib"></i>Dibujar firma</button>
                   <small id="nombreFirmaVisitante">Ningun archivo seleccionado</small>
+                  <div class="signature-actions">
+                    <button class="btn ghost" id="limpiarFirmaVisitante" type="button"><i class="fa-solid fa-eraser"></i>Limpiar firma</button>
+                  </div>
                   <figure id="vistaFirmaVisitante" class="file-preview hidden"></figure>
-                </label>
-                <label class="file-control">
+                </div>
+                <div class="file-control signature-control" data-signature="ogitic">
                   <span>Firma administrador OGITIC</span>
                   <input id="firmaOgitic" name="firma_ogitic" type="file" accept="image/*,application/pdf">
-                  <span class="file-button"><i class="fa-solid fa-cloud-arrow-up"></i>Seleccionar archivo</span>
+                  <div class="signature-buttons">
+                    <button class="file-button" type="button" data-open-file="firmaOgitic"><i class="fa-solid fa-cloud-arrow-up"></i>Seleccionar archivo</button>
+                  </div>
+                  <button class="signature-draw-button" type="button" data-open-signature="ogitic" onclick="abrirModalFirma('ogitic')"><i class="fa-solid fa-pen-nib"></i>Dibujar firma</button>
                   <small id="nombreFirmaOgitic">Ningun archivo seleccionado</small>
+                  <div class="signature-actions">
+                    <button class="btn ghost" id="limpiarFirmaOgitic" type="button"><i class="fa-solid fa-eraser"></i>Limpiar firma</button>
+                  </div>
                   <figure id="vistaFirmaOgitic" class="file-preview hidden"></figure>
-                </label>
+                </div>
               </div>
             </fieldset>
 
@@ -258,9 +284,38 @@
         </div>
       </section>
 
+      <section id="screen-listado" class="screen">
+        <div class="screen-head">
+          <div>
+            <h2>Listado de Registros</h2>
+            <p>Revise todos los accesos registrados y edite la informacion cuando sea necesario.</p>
+          </div>
+          <button class="btn primary-list" data-screen="newRecord"><i class="fa-solid fa-plus"></i>Nuevo Registro</button>
+        </div>
+
+        <div class="table-wrap consulta-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Fecha</th>
+                <th>Visitante</th>
+                <th>Documento</th>
+                <th>Empresa / Area</th>
+                <th>Ingreso</th>
+                <th>Salida</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="allRecordList"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section id="screen-detail" class="screen">
         <div class="detail-toolbar">
-          <button class="btn icon-only" data-screen="records"><i class="fa-solid fa-arrow-left"></i></button>
+          <button class="btn icon-only-det" data-screen="records"><i class="fa-solid fa-arrow-left"></i></button>
           <strong id="detailCode">Registro de Acceso</strong>
           <div>
             <button class="btn ghost"><i class="fa-solid fa-print"></i>Imprimir</button>
@@ -270,29 +325,46 @@
         <div id="detailContent" class="detail-grid"></div>
       </section>
 
-      <section id="screen-settings" class="screen">
-        <div class="panel compact">
-          <h2>Configuracion</h2>
-          <p>Parametros visibles del prototipo. La conexion real se define en el archivo `.env` del backend.</p>
-          <div class="settings-list">
-            <span><i class="fa-solid fa-database"></i>PostgreSQL: cacd-dp</span>
-            <span><i class="fa-solid fa-network-wired"></i>LDAP / Directorio Activo preparado</span>
-            <span><i class="fa-solid fa-server"></i>Puerto backend: 8065</span>
-          </div>
-        </div>
-      </section>
     </section>
 
     <nav class="mobile-toolbar">
       <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Panel</span></button>
       <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-square-plus"></i><span>Registrar</span></button>
+      <button class="nav-item" data-screen="listado"><i class="fa-solid fa-list-check"></i><span>Listado</span></button>
       <button class="nav-item" data-screen="records"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Consulta</span></button>
-      <button class="nav-item" data-screen="settings"><i class="fa-solid fa-circle-user"></i><span>Perfil</span></button>
     </nav>
   </main>
 
+  <div id="signatureModal" class="signature-modal hidden" aria-hidden="true">
+    <div class="signature-dialog" role="dialog" aria-modal="true" aria-labelledby="signatureModalTitle">
+      <div class="signature-dialog-head">
+        <div>
+          <strong id="signatureModalTitle">Dibujar firma</strong>
+          <span>Use el mouse, touchpad o dedo.</span>
+        </div>
+        <button id="cerrarModalFirma" class="btn icon-only" type="button"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="signature-board">
+        <canvas id="padFirmaModal" aria-label="Pizarra para dibujar firma"></canvas>
+        <div class="signature-hint">Firme dentro de esta pizarra</div>
+      </div>
+      <div class="signature-modal-actions">
+        <button id="limpiarModalFirma" class="btn ghost" type="button"><i class="fa-solid fa-eraser"></i>Limpiar</button>
+        <button id="cancelarModalFirma" class="btn ghost" type="button">Cancelar</button>
+        <button id="usarModalFirma" class="btn primary" type="button"><i class="fa-solid fa-check"></i>Usar firma</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="imageModal" class="image-modal hidden" aria-hidden="true">
+    <div class="image-dialog" role="dialog" aria-modal="true" aria-label="Vista ampliada de imagen">
+      <button id="cerrarModalImagen" class="btn icon-only" type="button"><i class="fa-solid fa-xmark"></i></button>
+      <img id="imagenAmpliada" src="" alt="Imagen ampliada">
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="/assets/js/app.js"></script>
+  <script src="/assets/js/app.js?v=20260818-listado-edicion"></script>
 </body>
 </html>
