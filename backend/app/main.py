@@ -158,6 +158,55 @@ def crear_registro(datos: RegistroAccesoEntrada, solicitud: Request, usuario=Dep
     return obtener_registro(creado["id"], usuario)
 
 
+@app.patch("/api/registros-acceso/{registro_id}")
+def actualizar_registro(
+    registro_id: int,
+    datos: RegistroAccesoEntrada,
+    solicitud: Request,
+    usuario=Depends(usuario_actual),
+):
+    estado = "SALIO" if datos.hora_salida else "DENTRO"
+    actualizado = execute(
+        """
+        UPDATE registros_acceso
+        SET fecha_acceso = %s,
+            nombres_visitante = %s,
+            documento_visitante = %s,
+            empresa_o_area = %s,
+            area_destino = %s,
+            motivo_acceso = %s,
+            hora_ingreso = %s,
+            hora_salida = %s,
+            personal_ogitic = %s,
+            observaciones = %s,
+            estado = %s,
+            actualizado_por = %s,
+            fecha_actualizacion = NOW()
+        WHERE id = %s
+        RETURNING id
+        """,
+        (
+            datos.fecha_acceso,
+            datos.nombres_visitante,
+            datos.documento_visitante,
+            datos.empresa_o_area,
+            datos.area_destino,
+            datos.motivo_acceso,
+            datos.hora_ingreso,
+            datos.hora_salida,
+            datos.personal_ogitic,
+            datos.observaciones,
+            estado,
+            usuario["nombre_usuario"],
+            registro_id,
+        ),
+    )
+    if not actualizado:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    registrar_auditoria(solicitud, usuario["nombre_usuario"], "ACTUALIZAR", "registros_acceso", registro_id)
+    return obtener_registro(registro_id, usuario)
+
+
 @app.get("/api/registros-acceso/{registro_id}")
 def obtener_registro(registro_id: int, usuario=Depends(usuario_actual)):
     registro = fetch_one(
