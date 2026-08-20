@@ -163,6 +163,14 @@ function fechaLocalISO(fecha = new Date()) {
   return `${anio}-${mes}-${dia}`;
 }
 
+function formatearMinutos(minutos) {
+  const total = Math.max(0, Number(minutos) || 0);
+  if (total < 60) return `${total} min`;
+  const horas = Math.floor(total / 60);
+  const resto = total % 60;
+  return resto ? `${horas}h ${resto}m` : `${horas}h`;
+}
+
 function nombreUsuarioActual() {
   return estadoAplicacion.usuario?.nombre_completo || estadoAplicacion.usuario?.nombre_usuario || "";
 }
@@ -239,9 +247,8 @@ async function cargarPanel() {
     const setIf = (sel, value) => { const el = $(sel); if (el) el.textContent = value; };
     setIf('#metricToday', getVal('resumen.ingresos_hoy', 'ingresos_hoy'));
     setIf('#metricInside', getVal('resumen.dentro_centro_datos', 'dentro_centro_datos'));
-    setIf('#metricMonth', getVal('resumen.ingresos_mes', 'ingresos_mes', 'resumen.ingresos_hoy', 'ingresos_hoy'));
-    setIf('#metricPeopleToday', getVal('resumen.personas_hoy', 'personas_hoy', 'resumen.ingresos_hoy', 'ingresos_hoy'));
-    setIf('#metricPending', getVal('resumen.pendientes_salida', 'pendientes_salida'));
+    setIf('#metricAvgTime', formatearMinutos(getVal('resumen.tiempo_promedio_hoy', 'tiempo_promedio_hoy')));
+    setIf('#metricObservationsToday', getVal('resumen.observaciones_hoy', 'observaciones_hoy'));
 
     // recientes (panel) -> table resumen
     const recientes = (datos.recientes || []).filter((registro) => {
@@ -266,8 +273,9 @@ async function cargarPanel() {
     // Render last 5 list
     renderRecentFive(recientes.slice(0,5));
     renderRecentMovements(recientes.slice(0,6));
+    renderInsidePeople(datos.dentro_actualmente || []);
 
-    // Load last 7 days for small chart
+    // Load today for hourly chart
     const hoy = new Date();
     const desde = new Date(hoy);
     desde.setDate(hoy.getDate() - 6);
@@ -275,24 +283,16 @@ async function cargarPanel() {
     const hastaStr = fechaLocalISO(hoy);
     try {
       const registros7 = await consultarApi(`/registros-acceso?fecha_desde=${desdeStr}&fecha_hasta=${hastaStr}`);
-      const byDate = new Map();
-      registros7.forEach(r => { const d = r.fecha_acceso; byDate.set(d, (byDate.get(d)||0)+1); });
-      const datesArr = [];
-      for (let i=0;i<7;i++) {
-        const d = new Date(desde);
-        d.setDate(desde.getDate() + i);
-        const s = fechaLocalISO(d);
-        datesArr.push([s, byDate.get(s) || 0]);
-      }
-      drawLine('chart7Days', datesArr, reportCharts.chart7Days);
-      // draw hourly today horizontal
       const horasMap = new Map();
       registros7
         .filter((r) => r.fecha_acceso === hastaStr)
-        .forEach(r => { const h = r.hora_ingreso ? String(r.hora_ingreso).slice(0,2) : 'ND'; horasMap.set(h, (horasMap.get(h)||0)+1); });
-      const horasArr = Array.from(horasMap.entries()).sort((a,b)=> a[0]-b[0]);
-      drawHorizontalBar('chartHourlyToday', horasArr, reportCharts.chartHourlyToday);
-      // Visitor type chart removed — no-op
+        .forEach(r => {
+          const hora = r.hora_ingreso ? Number(String(r.hora_ingreso).slice(0,2)) : null;
+          if (Number.isInteger(hora) && hora >= 8 && hora <= 17) horasMap.set(hora, (horasMap.get(hora)||0)+1);
+        });
+      const horasBase = Array.from({ length: 10 }, (_, i) => i + 8);
+      const horasArr = horasBase.map((h) => [`${h}:00`, horasMap.get(h) || 0]);
+      drawVerticalBar('chartHourlyToday', horasArr, reportCharts.chartHourlyToday);
     } catch (e) { /* ignore small chart errors */ }
   } catch (error) {
     $$(".metric-card").forEach((tarjeta) => tarjeta.classList.remove("loading"));
@@ -346,6 +346,9 @@ async function cargarRegistros(parametros = "") {
 }
 
 let historialCache = [];
+let historialFiltradoCache = [];
+let historialPaginaActual = 1;
+const historialPorPagina = 20;
 let reportDataCache = [];
 const reportCharts = {};
 
@@ -370,11 +373,11 @@ function minutosEntre(horaInicio, horaFin) {
 
 function bucketDuracion(minutos) {
   if (minutos == null) return 'Sin salida';
-  if (minutos < 30) return '<30 min';
-  if (minutos < 60) return '30-60 min';
-  if (minutos < 120) return '1-2 h';
-  if (minutos < 240) return '2-4 h';
-  return '>4 h';
+  if (minutos < 30) return 'Menos de 30 min';
+  if (minutos < 60) return '30 min - 1 hora';
+  if (minutos < 120) return '1 - 2 horas';
+  if (minutos < 240) return '2 - 4 horas';
+  return 'Más de 4 horas';
 }
 
 function actualizarIndicadorObservaciones(registros) {
@@ -392,30 +395,40 @@ async function cargarReportes(parametros = "") {
     const registros = await consultarApi(`/registros-acceso${parametros ? `?${parametros}` : ""}`);
     reportDataCache = registros;
     actualizarIndicadorObservaciones(registros);
-    // Motivo
+
+    const mesesOrden = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const meses = new Map(mesesOrden.map((mes) => [mes, 0]));
+    registros.forEach((r) => {
+      const fecha = new Date(`${r.fecha_acceso}T00:00:00`);
+      if (!Number.isNaN(fecha.getTime())) {
+        const etiqueta = mesesOrden[fecha.getMonth()];
+        meses.set(etiqueta, (meses.get(etiqueta) || 0) + 1);
+      }
+    });
+    drawLine('chartMes', Array.from(meses.entries()), reportCharts.chartMes);
+
     const motivos = agruparYContar(registros, r => r.motivo_acceso || 'Sin motivo');
-    drawPie('chartMotivo', motivos, reportCharts.chartMotivo);
-    // Area
+    drawDonut('chartMotivo', motivos, 'legendMotivo');
+
     const areas = agruparYContar(registros, r => r.empresa_o_area || 'Sin area');
-    drawBar('chartArea', areas, reportCharts.chartArea);
-    // Horario: count by hour of hora_ingreso
-    const horas = new Map();
-    registros.forEach(r => { const h = r.hora_ingreso ? Number(String(r.hora_ingreso).slice(0,2)) : 'ND'; horas.set(h, (horas.get(h)||0)+1); });
-    const horasArr = Array.from(horas.entries()).sort((a,b)=> (a[0]=== 'ND')?1: (b[0]=== 'ND')?-1: a[0]-b[0]);
-    drawLine('chartHorario', horasArr, reportCharts.chartHorario);
-    // Duracion
+    drawHorizontalBarWithValues('chartArea', areas.slice(0, 10));
+
     const durMap = new Map();
     registros.forEach(r => { const m = minutosEntre(r.hora_ingreso, r.hora_salida); const b = bucketDuracion(m); durMap.set(b, (durMap.get(b)||0)+1); });
-    const durArr = Array.from(durMap.entries());
-    drawBar('chartDuracion', durArr, reportCharts.chartDuracion);
-    // Evolucion mensual
-    const meses = new Map();
-    registros.forEach(r => { const d = new Date(r.fecha_acceso); const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; meses.set(key, (meses.get(key)||0)+1); });
-    const mesesArr = Array.from(meses.entries()).sort((a,b)=> a[0].localeCompare(b[0]));
-    drawLine('chartMes', mesesArr, reportCharts.chartMes);
-    // OGTIC
+    const durOrden = ['Menos de 30 min', '30 min - 1 hora', '1 - 2 horas', '2 - 4 horas', 'Más de 4 horas', 'Sin salida'];
+    const durArr = durOrden.filter((key) => durMap.has(key)).map((key) => [key, durMap.get(key)]);
+    drawDonut('chartDuracion', durArr, 'legendDuracion');
+
     const ogitic = agruparYContar(registros, r => r.personal_ogitic || 'Sin registro');
-    drawBar('chartOgitic', ogitic, reportCharts.chartOgitic);
+    drawVerticalBarWithValues('chartOgitic', ogitic.slice(0, 10));
+
+    const estados = agruparYContar(registros, (r) => {
+      const estado = estadoPorSalida(r);
+      if (estado === 'SALIO') return 'Salió';
+      if (estado === 'PENDIENTE_SALIDA') return 'Dentro';
+      return 'Pendiente';
+    });
+    drawDonut('chartEstado', estados, 'legendEstado');
   } catch (error) {
     mostrarAviso(error.message);
   }
@@ -436,6 +449,71 @@ function ejeEntero() {
       callback: (valor) => Number.isInteger(Number(valor)) ? valor : '',
     },
   };
+}
+
+function ejeCantidadFlexible() {
+  return {
+    beginAtZero: true,
+    ticks: {
+      precision: 0,
+      color: '#0f172a',
+      font: { family: 'Poppins' },
+      callback: (valor) => Number.isInteger(Number(valor)) ? valor : '',
+    },
+  };
+}
+
+function destruirGrafico(id) {
+  if (reportCharts[id]) {
+    reportCharts[id].destroy();
+    delete reportCharts[id];
+  }
+}
+
+const etiquetasBarraPlugin = {
+  id: 'etiquetasBarra',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const dataset = chart.data.datasets[0];
+    if (!dataset) return;
+    ctx.save();
+    ctx.font = '700 11px Poppins, sans-serif';
+    ctx.fillStyle = '#102033';
+    ctx.textBaseline = 'middle';
+    const meta = chart.getDatasetMeta(0);
+    meta.data.forEach((bar, index) => {
+      const valor = dataset.data[index];
+      if (valor == null) return;
+      if (chart.options.indexAxis === 'y') {
+        ctx.textAlign = 'left';
+        ctx.fillText(valor, bar.x + 8, bar.y);
+      } else {
+        ctx.textAlign = 'center';
+        ctx.fillText(valor, bar.x, bar.y - 10);
+      }
+    });
+    ctx.restore();
+  },
+};
+
+function renderLegendList(legendId, dataPairs, colors) {
+  const el = document.getElementById(legendId);
+  if (!el) return;
+  const total = dataPairs.reduce((sum, [, value]) => sum + Number(value || 0), 0);
+  if (!dataPairs.length || total === 0) {
+    el.innerHTML = `<div class="chart-legend-empty">Sin datos</div>`;
+    return;
+  }
+  el.innerHTML = dataPairs.map(([label, value], index) => {
+    const porcentaje = Math.round((Number(value || 0) / total) * 100);
+    return `
+      <div class="chart-legend-item">
+        <span class="legend-dot" style="background:${colors[index % colors.length]}"></span>
+        <span class="legend-label">${escapeHtml(label)}</span>
+        <strong>${value}</strong>
+        <small>${porcentaje}%</small>
+      </div>`;
+  }).join('');
 }
 
 function drawPie(id, dataPairs, existingChart) {
@@ -487,6 +565,154 @@ function drawBar(id, dataPairs, existingChart) {
   reportCharts[id] = new Chart(ctx.getContext('2d'), { type: 'bar', data: { labels, datasets: [{ label: '', data: values, backgroundColor: generateColors(values.length), borderColor: generateColors(values.length).map(c=>shadeColor(c,-30)), borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2, scales: { x: { ticks: { color: '#0f172a', font: { family: 'Poppins' } } }, y: ejeEntero() }, plugins: { legend: { display: false } } } });
 }
 
+function drawDonut(id, dataPairs, legendId) {
+  const labels = dataPairs.map(d=>d[0]);
+  const values = dataPairs.map(d=>d[1]);
+  const ctx = ensureCanvas(id);
+  if (!ctx) return;
+  destruirGrafico(id);
+  const colors = generateColors(Math.max(values.length, 1));
+  renderLegendList(legendId, dataPairs, colors);
+  reportCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: '#fff',
+        borderWidth: 3,
+        hoverOffset: 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '64%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+              const value = Number(ctx.parsed || 0);
+              const porcentaje = total ? Math.round((value / total) * 100) : 0;
+              return `${ctx.label}: ${value} (${porcentaje}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function drawHorizontalBarWithValues(id, dataPairs) {
+  const labels = dataPairs.map(d=>d[0]);
+  const values = dataPairs.map(d=>d[1]);
+  const ctx = ensureCanvas(id);
+  if (!ctx) return;
+  destruirGrafico(id);
+  const colors = generateColors(Math.max(values.length, 1));
+  reportCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: colors.map(c=>shadeColor(c,-30)),
+        borderWidth: 1,
+        borderRadius: 8,
+        maxBarThickness: 28,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 28 } },
+      scales: {
+        x: ejeCantidadFlexible(),
+        y: { ticks: { color: '#0f172a', font: { family: 'Poppins', size: 11 } }, grid: { display: false } },
+      },
+      plugins: { legend: { display: false }, tooltip: { enabled: true } },
+    },
+    plugins: [etiquetasBarraPlugin],
+  });
+}
+
+function drawVerticalBarWithValues(id, dataPairs) {
+  const labels = dataPairs.map(d=>d[0]);
+  const values = dataPairs.map(d=>d[1]);
+  const ctx = ensureCanvas(id);
+  if (!ctx) return;
+  destruirGrafico(id);
+  const colors = generateColors(Math.max(values.length, 1));
+  reportCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: colors.map(c=>shadeColor(c,-30)),
+        borderWidth: 1,
+        borderRadius: 8,
+        maxBarThickness: 42,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
+      scales: {
+        x: { ticks: { color: '#0f172a', font: { family: 'Poppins', size: 11 }, maxRotation: 35, minRotation: 0 }, grid: { display: false } },
+        y: ejeCantidadFlexible(),
+      },
+      plugins: { legend: { display: false }, tooltip: { enabled: true } },
+    },
+    plugins: [etiquetasBarraPlugin],
+  });
+}
+
+function drawVerticalBar(id, dataPairs, existingChart) {
+  const labels = dataPairs.map(d=>d[0]);
+  const values = dataPairs.map(d=>d[1]);
+  const ctx = ensureCanvas(id);
+  if (!ctx) return;
+  if (existingChart) {
+    existingChart.destroy();
+    delete reportCharts[id];
+  }
+  reportCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '',
+        data: values,
+        backgroundColor: '#63a9dc',
+        borderColor: '#0b5f9f',
+        borderWidth: 1,
+        borderRadius: 8,
+        maxBarThickness: 34,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#294963', font: { family: 'Poppins', size: 11 } },
+        },
+        y: ejeEntero(),
+      },
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
 function drawHorizontalBar(id, dataPairs, existingChart) {
   const labels = dataPairs.map(d=>d[0]);
   const values = dataPairs.map(d=>d[1]);
@@ -502,7 +728,34 @@ function drawLine(id, dataPairs, existingChart) {
   const ctx = ensureCanvas(id);
   if (!ctx) return;
   if (existingChart) { existingChart.data.labels = labels; existingChart.data.datasets[0].data = values; existingChart.update(); return; }
-  reportCharts[id] = new Chart(ctx.getContext('2d'), { type: 'line', data: { labels, datasets: [{ label: '', data: values, borderColor: '#1e40af', backgroundColor: 'rgba(59,130,246,0.12)', fill: true }] }, options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2, scales: { x: { ticks: { color: '#0f172a', font: { family: 'Poppins' } } }, y: ejeEntero() }, plugins: { legend: { display: false } } } });
+  reportCharts[id] = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '',
+        data: values,
+        borderColor: '#1469a8',
+        backgroundColor: '#1469a8',
+        pointBackgroundColor: '#fff',
+        pointBorderColor: '#1469a8',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: .32,
+        fill: false,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#0f172a', font: { family: 'Poppins' } }, grid: { display: false } },
+        y: ejeCantidadFlexible(),
+      },
+      plugins: { legend: { display: false } },
+    },
+  });
 }
 
 function generateColors(n) { const palette = ['#e6f2ff','#cfe9ff','#9fd7ff','#66baff','#3399ff','#0077e6','#005bb5','#003f7a']; return Array.from({length:n}, (_,i)=>palette[i%palette.length]); }
@@ -556,6 +809,7 @@ async function cargarHistorial(parametros = "") {
     const form = $("#filterForm");
     const formHasValues = form ? Array.from(new FormData(form)).some(([,v]) => v && String(v).trim() !== "") : false;
     const filtrados = (parametros || formHasValues) ? aplicarFiltrosLocal(registros) : registros;
+    historialPaginaActual = 1;
     renderHistorial(filtrados);
   } catch (error) {
     mostrarAviso(error.message);
@@ -564,33 +818,96 @@ async function cargarHistorial(parametros = "") {
 
 function renderHistorial(registros) {
   const cuerpo = $("#historialList");
+  const tarjetas = $("#historialCards");
   if (!cuerpo) return;
-  console.debug('renderHistorial registros count:', registros && registros.length, registros && registros.slice(0,6));
-  if (!registros || registros.length === 0) {
+  historialFiltradoCache = registros || [];
+  const total = historialFiltradoCache.length;
+  const totalPaginas = Math.max(1, Math.ceil(total / historialPorPagina));
+  historialPaginaActual = Math.min(Math.max(historialPaginaActual, 1), totalPaginas);
+  const inicio = (historialPaginaActual - 1) * historialPorPagina;
+  const pagina = historialFiltradoCache.slice(inicio, inicio + historialPorPagina);
+  if (total === 0) {
     cuerpo.innerHTML = `<tr><td colspan="11">No se encontraron registros.</td></tr>`;
+    if (tarjetas) tarjetas.innerHTML = `
+      <article class="historial-card historial-card-empty">
+        <i class="fa-regular fa-folder-open"></i>
+        <span>No se encontraron registros.</span>
+      </article>`;
+    renderHistorialPaginacion(0, 0, 0);
     return;
   }
-  cuerpo.innerHTML = registros.map((r, idx) => `
+  cuerpo.innerHTML = pagina.map((r, idx) => `
     <tr>
-      <td>${idx + 1}</td>
+      <td>${inicio + idx + 1}</td>
       <td>${r.fecha_acceso}</td>
       <td>${r.nombres_visitante}</td>
       <td>${r.empresa_o_area || ''}</td>
       <td>${r.motivo_acceso || ''}</td>
       <td>${formatearHora(r.hora_ingreso)}</td>
-      <td>${formatearHoraSalida(r.hora_salida)}</td>
+      <td>${r.hora_salida ? formatearHora(r.hora_salida) : '<span class="status pendiente">Pendiente de salida</span>'}</td>
       <td>${r.personal_ogitic || ''}</td>
       <td>${(r.observaciones || '').replace(/</g, '&lt;')}</td>
-      <td>${r.estado}</td>
+      <td>${r.hora_salida ? etiquetaEstado('SALIO') : etiquetaEstado('DENTRO')}</td>
       <td>
         <div class="row-actions">
-          <button class="btn icon-only" data-detail="${r.id}" title="Ver detalle"><i class="fa-regular fa-eye"></i></button>
-          <button class="btn icon-only" data-edit="${r.id}" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-          ${!r.hora_salida ? `<button class="btn icon-only" data-mark-exit="${r.id}" title="Marcar salida"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>` : ''}
+          <button class="btn icon-only action-view" data-detail="${r.id}" title="Ver detalle"><i class="fa-regular fa-eye"></i></button>
+          <button class="btn icon-only action-edit" data-edit="${r.id}" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+          ${!r.hora_salida ? `<button class="btn icon-only action-exit" data-mark-exit="${r.id}" title="Marcar salida"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>` : ''}
         </div>
       </td>
     </tr>
   `).join('');
+  if (tarjetas) {
+    tarjetas.innerHTML = pagina.map((r, idx) => {
+      const numero = inicio + idx + 1;
+      const horaSalida = r.hora_salida
+        ? formatearHora(r.hora_salida)
+        : '<span class="status pendiente">Pendiente de salida</span>';
+      const estado = r.hora_salida ? etiquetaEstado('SALIO') : etiquetaEstado('DENTRO');
+      return `
+        <article class="historial-card">
+          <div class="historial-card-head">
+            <div class="historial-card-title">
+              <small>N° ${numero} · ${escapeHtml(r.fecha_acceso)}</small>
+              <strong>${escapeHtml(r.nombres_visitante || 'Sin nombre')}</strong>
+              <span>${escapeHtml(r.documento_visitante || 'Sin documento')}</span>
+            </div>
+            ${estado}
+          </div>
+          <div class="historial-card-grid">
+            <div><span>Área / Empresa</span><strong>${escapeHtml(r.empresa_o_area || '-')}</strong></div>
+            <div><span>Motivo</span><strong>${escapeHtml(r.motivo_acceso || '-')}</strong></div>
+            <div><span>Ingreso</span><strong>${formatearHora(r.hora_ingreso)}</strong></div>
+            <div><span>Salida</span><strong>${horaSalida}</strong></div>
+            <div><span>Personal OGTIC</span><strong>${escapeHtml(r.personal_ogitic || '-')}</strong></div>
+            <div><span>Observaciones</span><strong>${escapeHtml(r.observaciones || '-')}</strong></div>
+          </div>
+          <div class="historial-card-actions row-actions">
+            <button class="btn icon-only action-view" data-detail="${r.id}" title="Ver detalle"><i class="fa-regular fa-eye"></i></button>
+            <button class="btn icon-only action-edit" data-edit="${r.id}" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+            ${!r.hora_salida ? `<button class="btn icon-only action-exit" data-mark-exit="${r.id}" title="Marcar salida"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>` : ''}
+          </div>
+        </article>`;
+    }).join('');
+  }
+  renderHistorialPaginacion(total, inicio + 1, inicio + pagina.length);
+}
+
+function renderHistorialPaginacion(total, desde, hasta) {
+  const info = $("#historialPageInfo");
+  const pag = $("#historialPagination");
+  if (info) info.textContent = total ? `Mostrando ${desde} - ${hasta} de ${total} registros` : "Mostrando 0 de 0 registros";
+  if (!pag) return;
+  const totalPaginas = Math.max(1, Math.ceil(total / historialPorPagina));
+  const paginas = [];
+  const inicio = Math.max(1, historialPaginaActual - 1);
+  const fin = Math.min(totalPaginas, inicio + 2);
+  paginas.push(`<button class="page-control" data-page="${Math.max(1, historialPaginaActual - 1)}" ${historialPaginaActual === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>`);
+  for (let p = inicio; p <= fin; p += 1) {
+    paginas.push(`<button class="page-control ${p === historialPaginaActual ? 'active' : ''}" data-page="${p}">${p}</button>`);
+  }
+  paginas.push(`<button class="page-control" data-page="${Math.min(totalPaginas, historialPaginaActual + 1)}" ${historialPaginaActual === totalPaginas ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>`);
+  pag.innerHTML = paginas.join('');
 }
 
 function renderRecentFive(items) {
@@ -625,6 +942,69 @@ function renderRecentFive(items) {
       <td>${etiquetaEstado(mostradoEstado)}</td>
     </tr>`;
   }).join('');
+}
+
+function renderInsidePeople(items) {
+  const el = $("#insidePeople");
+  const moreBtn = $("#showInsideMore");
+  if (!el) return;
+  const lista = (items || []).slice(0, 4);
+  if (moreBtn) moreBtn.classList.toggle("hidden", (items || []).length <= 4);
+  if (lista.length === 0) {
+    el.innerHTML = `
+      <table class="inside-people-table">
+        <thead><tr><th>Persona/proveedor</th><th>Área/empresa</th><th>Ingreso</th><th>Tiempo dentro</th></tr></thead>
+        <tbody><tr class="empty-row"><td colspan="4">No hay personas dentro actualmente.</td></tr></tbody>
+      </table>
+      <div class="inside-people-cards">
+        <article class="inside-person-card inside-person-empty">
+          <i class="fa-solid fa-user-check"></i>
+          <span>No hay personas dentro actualmente.</span>
+        </article>
+      </div>`;
+    return;
+  }
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2,'0')}:${String(ahora.getMinutes()).padStart(2,'0')}`;
+  const datosPersona = lista.map((r) => {
+    const hi = normalizeHM(r.hora_ingreso);
+    const tiempoMin = hi ? minutosEntre(hi, horaActual) : null;
+    return {
+      nombre: escapeHtml(r.nombres_visitante || 'Sin nombre'),
+      area: escapeHtml(r.empresa_o_area || r.area_destino || '-'),
+      ingreso: hi ? formatearHora(hi) : '--:--',
+      tiempo: tiempoMin == null ? 'Dentro' : formatearMinutos(tiempoMin),
+    };
+  });
+  const rows = datosPersona.map((persona) => {
+    return `
+      <tr>
+        <td class="inside-name">${persona.nombre}</td>
+        <td>${persona.area}</td>
+        <td>${persona.ingreso}</td>
+        <td class="inside-time">${persona.tiempo}</td>
+      </tr>`;
+  }).join('');
+  const cards = datosPersona.map((persona) => `
+    <article class="inside-person-card">
+      <div class="inside-person-head">
+        <span class="inside-person-icon"><i class="fa-regular fa-circle-user"></i></span>
+        <div>
+          <strong>${persona.nombre}</strong>
+          <small>${persona.area}</small>
+        </div>
+      </div>
+      <div class="inside-person-meta">
+        <span><i class="fa-solid fa-arrow-right-to-bracket"></i>${persona.ingreso}</span>
+        <span><i class="fa-regular fa-clock"></i>${persona.tiempo}</span>
+      </div>
+    </article>`).join('');
+  el.innerHTML = `
+    <table class="inside-people-table">
+      <thead><tr><th>Persona/proveedor</th><th>Área/empresa</th><th>Ingreso</th><th>Tiempo dentro</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="inside-people-cards">${cards}</div>`;
 }
 
 function renderRecentMovements(items) {
@@ -726,21 +1106,6 @@ function aplicarFiltrosLocal(registros) {
       return fields.some(f => (f || '').toString().toLowerCase().includes(term));
     });
   }
-  if (datos.empresa_o_area) {
-    const term = datos.empresa_o_area.toLowerCase();
-    res = res.filter(r => (r.empresa_o_area || '').toLowerCase().includes(term));
-  }
-  if (datos.motivo_acceso) {
-    const term = datos.motivo_acceso.toLowerCase();
-    res = res.filter(r => (r.motivo_acceso || '').toLowerCase().includes(term));
-  }
-  if (datos.personal_ogitic) {
-    const term = datos.personal_ogitic.toLowerCase();
-    res = res.filter(r => (r.personal_ogitic || '').toLowerCase().includes(term));
-  }
-  if (datos.estado) {
-    res = res.filter(r => String(r.estado).toUpperCase() === String(datos.estado).toUpperCase());
-  }
   return res;
 }
 
@@ -792,6 +1157,7 @@ async function marcarSalidaRegistro(id) {
 
 function mostrarSkeletonRegistros() {
   const target = $("#historialList") || $("#recordList") || $("#allRecordList");
+  const tarjetasHistorial = $("#historialCards");
   if (!target) return;
   target.innerHTML = Array.from({ length: 6 }, () => `
     <tr class="skeleton-row">
@@ -807,6 +1173,15 @@ function mostrarSkeletonRegistros() {
       <td><span class="skeleton-chip"></span></td>
     </tr>
   `).join("");
+  if (tarjetasHistorial) {
+    tarjetasHistorial.innerHTML = Array.from({ length: 3 }, () => `
+      <article class="historial-card">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line"></div>
+      </article>
+    `).join("");
+  }
 }
 
 async function cargarListadoRegistros() {
@@ -885,6 +1260,10 @@ async function editarRegistro(id) {
     }
     formulario.personal_ogitic.value = registro.personal_ogitic || nombreUsuarioActual();
     formulario.observaciones.value = registro.observaciones || "";
+    limpiarFirma("visitante");
+    limpiarFirma("ogitic");
+    if (registro.firma_visitante_base64) mostrarFirmaDibujada("visitante", registro.firma_visitante_base64);
+    if (registro.firma_ogitic_base64) mostrarFirmaDibujada("ogitic", registro.firma_ogitic_base64);
     cambiarPantalla("newRecord");
     $("#pageTitle").textContent = "Editar Registro";
     $(".panel-head h2").textContent = `Editar ${registro.codigo}`;
@@ -1351,7 +1730,6 @@ $("#filterForm").addEventListener("submit", (evento) => {
   if (fd.get('fecha_desde')) params.append('fecha_desde', fd.get('fecha_desde'));
   if (fd.get('fecha_hasta')) params.append('fecha_hasta', fd.get('fecha_hasta'));
   if (fd.get('busqueda')) params.append('busqueda', fd.get('busqueda'));
-  if (fd.get('estado')) params.append('estado', fd.get('estado'));
   cargarHistorial(params.toString());
 });
 
@@ -1406,6 +1784,11 @@ document.addEventListener("click", (evento) => {
   }
   const botonMarcar = evento.target.closest("[data-mark-exit]");
   if (botonMarcar) marcarSalidaRegistro(botonMarcar.dataset.markExit);
+  const botonPagina = evento.target.closest("[data-page]");
+  if (botonPagina) {
+    historialPaginaActual = Number(botonPagina.dataset.page) || 1;
+    renderHistorial(historialFiltradoCache);
+  }
 });
 
 // Back button on the new/edit form header

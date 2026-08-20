@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/assets/css/styles.css?v=20260820-fab-expansion">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=20260820-historial-cards">
   <!-- Chart and export libs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -56,8 +56,10 @@
   <main id="appView" class="app-shell hidden">
     <aside class="sidebar">
       <div class="side-brand">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span>CONTROL DE<br>ACCESO</span>
+        <div class="brand-text">
+          <span>DIAG</span>
+          <small>Centro de Datos</small>
+        </div>
         <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Expandir o contraer menu">
           <i class="fa-solid fa-bars-staggered"></i>
         </button>
@@ -110,45 +112,44 @@
       <section id="screen-dashboard" class="screen active">
         <div class="metric-grid">
           <article class="metric-card">
-            <span>Accesos de hoy</span>
+            <span>Personal dentro</span>
+            <strong id="metricInside">0</strong>
+            <small>Actualmente</small>
+            <i class="fa-solid fa-users-viewfinder"></i>
+          </article>
+          <article class="metric-card accent">
+            <span>Ingresos hoy</span>
             <strong id="metricToday">0</strong>
-            <small>Hoy</small>
+            <small>Registros del día</small>
             <i class="fa-solid fa-arrow-right-to-bracket"></i>
           </article>
           <article class="metric-card">
-            <span>Dentro del DC</span>
-            <strong id="metricInside">0</strong>
-            <small>Activos ahora</small>
-            <i class="fa-solid fa-server"></i>
-          </article>
-          <article class="metric-card accent">
-            <span>Accesos del mes</span>
-            <strong id="metricMonth">0</strong>
-            <small>Mes actual</small>
-            <i class="fa-solid fa-calendar-days"></i>
-          </article>
-          <article class="metric-card">
-            <span>Personas/proveedores hoy</span>
-            <strong id="metricPeopleToday">0</strong>
-            <small>Hoy</small>
-            <i class="fa-solid fa-users"></i>
+            <span>Tiempo promedio</span>
+            <strong id="metricAvgTime">0 min</strong>
+            <small>Accesos cerrados hoy</small>
+            <i class="fa-regular fa-clock"></i>
           </article>
           <article class="metric-card warn">
-            <span>Registros pendientes</span>
-            <strong id="metricPending">0</strong>
-            <small>Pendientes de salida</small>
-            <i class="fa-regular fa-clock"></i>
+            <span>Observaciones hoy</span>
+            <strong id="metricObservationsToday">0</strong>
+            <small>Registros con detalle</small>
+            <i class="fa-regular fa-note-sticky"></i>
           </article>
         </div>
 
         <div class="dashboard-grid">
-          <div class="dash-card chart-card">
-            <h4>Ingresos de hoy</h4>
+          <div class="dash-card chart-card hourly-card">
+            <h4>Ingresos de hoy por hora</h4>
             <canvas id="chartHourlyToday"></canvas>
           </div>
-          <div class="dash-card chart-card">
-            <h4>Accesos últimos 7 días</h4>
-            <canvas id="chart7Days"></canvas>
+          <div class="dash-card inside-card">
+            <div class="inside-card-head">
+              <h4>Personas actualmente dentro</h4>
+              <button id="showInsideMore" class="text-action hidden" data-screen="historial" type="button">
+                <span>Ver más</span><i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+            <div id="insidePeople" class="inside-people-list"></div>
           </div>
           <div class="dash-card movements-card">
             <h4>Últimos movimientos</h4>
@@ -165,7 +166,7 @@
       <section id="screen-reportes" class="screen">
         <form id="reportFilterForm" class="filter-panel">
           <strong><i class="fa-solid fa-filter"></i>Filtros para Reportes</strong>
-          <div class="form-grid three">
+          <div class="report-filter-row">
             <label><span>Desde</span><input name="fecha_desde" type="date"></label>
             <label><span>Hasta</span><input name="fecha_hasta" type="date"></label>
             <label><span>Área / Empresa</span><input name="empresa_o_area" placeholder="Ej. Oficina Central"></label>
@@ -173,43 +174,57 @@
             <label><span>Personal OGTIC</span><input name="personal_ogitic" placeholder="Ej. Perez"></label>
             <div class="report-actions">
               <button class="btn primary" id="runReportsBtn" type="button"><i class="fa-solid fa-chart-simple"></i>Generar</button>
-              <button id="exportXlsBtn" class="btn ghost" type="button"><i class="fa-solid fa-file-excel"></i>Exportar a Excel</button>
-              <button id="exportPdfBtn" class="btn ghost" type="button"><i class="fa-solid fa-file-pdf"></i>Exportar a PDF</button>
             </div>
           </div>
         </form>
 
         <div class="report-grid">
+          <div class="report-card report-card-wide">
+            <h4>Accesos por mes</h4>
+            <div class="report-chart-box">
+              <canvas id="chartMes"></canvas>
+            </div>
+          </div>
           <div class="report-card">
             <h4>Accesos por motivo</h4>
-            <canvas id="chartMotivo"></canvas>
+            <div class="chart-with-legend">
+              <div class="report-chart-box donut-box">
+                <canvas id="chartMotivo"></canvas>
+              </div>
+              <div id="legendMotivo" class="chart-legend-list"></div>
+            </div>
+          </div>
+          <div class="report-card">
+            <h4>Duración de los accesos</h4>
+            <div class="chart-with-legend">
+              <div class="report-chart-box donut-box">
+                <canvas id="chartDuracion"></canvas>
+              </div>
+              <div id="legendDuracion" class="chart-legend-list"></div>
+            </div>
           </div>
           <div class="report-card">
             <h4>Accesos por Área / Empresa</h4>
-            <canvas id="chartArea"></canvas>
+            <div class="report-chart-box">
+              <canvas id="chartArea"></canvas>
+            </div>
           </div>
           <div class="report-card">
-            <h4>Accesos por rango horario (hora)</h4>
-            <canvas id="chartHorario"></canvas>
+            <h4>Accesos atendidos por personal OGTIC</h4>
+            <div class="report-chart-box">
+              <canvas id="chartOgitic"></canvas>
+            </div>
           </div>
           <div class="report-card">
-            <h4>Duración de accesos</h4>
-            <canvas id="chartDuracion"></canvas>
+            <h4>Estado de accesos</h4>
+            <div class="chart-with-legend">
+              <div class="report-chart-box donut-box">
+                <canvas id="chartEstado"></canvas>
+              </div>
+              <div id="legendEstado" class="chart-legend-list"></div>
+            </div>
           </div>
-          <div class="report-card">
-            <h4>Evolución mensual</h4>
-            <canvas id="chartMes"></canvas>
-          </div>
-          <div class="report-card">
-            <h4>Accesos por personal OGTIC</h4>
-            <canvas id="chartOgitic"></canvas>
-          </div>
-        </div>
-
-        <div class="report-indicator">
-          <strong id="regObservationsCount">0</strong>
-          <span>Registros con observaciones</span>
-        </div>
+        </div>      
       </section>
 
       <section id="screen-newRecord" class="screen">
@@ -310,16 +325,11 @@
 
         <form id="filterForm" class="filter-panel">
           <strong><i class="fa-solid fa-filter"></i>Filtros de Búsqueda</strong>
-          <div class="form-grid three">
+          <div class="historial-filter-row">
+            <label class="historial-search"><span>Buscar</span><input name="busqueda" placeholder="Nombre, DNI, empresa, motivo u observación"></label>
             <label><span>Desde</span><input name="fecha_desde" type="date"></label>
             <label><span>Hasta</span><input name="fecha_hasta" type="date"></label>
-            <label><span>Nombre / DNI</span><input name="busqueda" placeholder="Ej. Juan Perez"></label>
-            <label><span>Área / Empresa</span><input name="empresa_o_area" placeholder="Ej. Oficina Central"></label>
-            <label><span>Motivo</span><input name="motivo_acceso" placeholder="Ej. Mantenimiento"></label>
-            <label><span>Personal OGTIC</span><input name="personal_ogitic" placeholder="Ej. Perez"></label>
-            <label><span>Estado</span><select name="estado"><option value="">Todos</option><option>DENTRO</option><option>SALIO</option><option>PENDIENTE</option></select></label>
             <button class="btn primary search-btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i>Buscar</button>
-            <button id="exportBtn" class="btn ghost export-btn" type="button" title="Exportar CSV"><i class="fa-solid fa-file-export"></i>Exportar</button>
           </div>
         </form>
 
@@ -342,15 +352,19 @@
             </thead>
             <tbody id="historialList"></tbody>
           </table>
+          <div id="historialCards" class="historial-cards"></div>
+          <div class="historial-table-footer">
+            <span id="historialPageInfo">Mostrando 0 de 0 registros</span>
+            <div id="historialPagination" class="historial-pagination"></div>
+          </div>
         </div>
       </section>
 
       <section id="screen-detail" class="screen">
         <div class="detail-toolbar">
-          <button class="btn icon-only-det" data-screen="records"><i class="fa-solid fa-arrow-left"></i></button>
+          <button class="btn icon-only-det" data-screen="historial"><i class="fa-solid fa-arrow-left"></i></button>
           <strong id="detailCode">Registro de Acceso</strong>
           <div>
-            <button class="btn ghost"><i class="fa-solid fa-print"></i>Imprimir</button>
             <button id="markExitBtn" class="btn primary"><i class="fa-solid fa-arrow-right-from-bracket"></i>Marcar Salida</button>
           </div>
         </div>
@@ -403,6 +417,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="/assets/js/app.js?v=20260820-fab-expansion"></script>
+  <script src="/assets/js/app.js?v=20260820-historial-cards"></script>
 </body>
 </html>
