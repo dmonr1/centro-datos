@@ -12,18 +12,42 @@ from .database import execute, fetch_one
 HORAS_DURACION_SESION = 8
 
 
-def validar_directorio_activo(nombre_usuario: str, clave: str) -> bool:
-    if not settings.ldap_enabled:
-        return nombre_usuario == "admin" and clave == "admin"
+def normalizar_nombre_usuario(nombre_usuario: str) -> str:
+    usuario = nombre_usuario.strip()
+    if "\\" in usuario:
+        usuario = usuario.rsplit("\\", 1)[-1]
+    if "@" in usuario:
+        usuario = usuario.split("@", 1)[0]
+    return usuario.lower()
 
-    usuario_directorio = nombre_usuario
-    if settings.ldap_domain and "\\" not in nombre_usuario and "@" not in nombre_usuario:
-        usuario_directorio = f"{settings.ldap_domain}\\{nombre_usuario}"
+
+def candidatos_usuario_directorio(nombre_usuario: str) -> list[str]:
+    usuario = nombre_usuario.strip()
+    if not settings.ldap_domain or "\\" in usuario or "@" in usuario:
+        return [usuario]
+
+    candidatos = [usuario, f"{settings.ldap_domain}\\{usuario}", f"{usuario}@{settings.ldap_domain}"]
+    dominio_netbios = settings.ldap_domain.split(".", 1)[0]
+    if dominio_netbios and dominio_netbios != settings.ldap_domain:
+        candidatos.append(f"{dominio_netbios}\\{usuario}")
+    return list(dict.fromkeys(candidatos))
+
+
+def validar_directorio_activo(nombre_usuario: str, clave: str) -> bool:
+    usuario_normalizado = normalizar_nombre_usuario(nombre_usuario)
+    if settings.usuarios_permitidos and usuario_normalizado not in settings.usuarios_permitidos:
+        return False
+
+    if not settings.ldap_enabled:
+        return clave == "admin"
 
     try:
         servidor = Server(settings.ad_url, get_info=ALL)
-        conexion = Connection(servidor, user=usuario_directorio, password=clave, auto_bind=False)
-        return bool(conexion.bind())
+        for usuario_directorio in candidatos_usuario_directorio(nombre_usuario):
+            conexion = Connection(servidor, user=usuario_directorio, password=clave, auto_bind=False)
+            if conexion.bind():
+                return True
+        return False
     except Exception as exc:
         if settings.ad_show_exceptions:
             raise HTTPException(status_code=502, detail=f"Error AD/LDAP: {exc}") from exc

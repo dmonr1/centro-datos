@@ -36,6 +36,11 @@ class Settings:
     db_name = os.getenv("DB_NAME", "cacd-dp")
     db_user = os.getenv("DB_USER", "postgres")
     db_password = os.getenv("DB_PASSWORD", "1234")
+    usuarios_permitidos = {
+        usuario.strip().lower()
+        for usuario in os.getenv("USUARIOS_PERMITIDOS", "admin").split(",")
+        if usuario.strip()
+    }
 
     ad_host = env_value("AD_HOST", "app.ad.host", default="localhost")
     ad_port = env_value("AD_PORT", "app.ad.port", default="389")

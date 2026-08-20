@@ -11,6 +11,7 @@ from .auth import (
     asegurar_usuario,
     crear_llave_sesion,
     registrar_auditoria,
+    normalizar_nombre_usuario,
     usuario_actual,
     validar_directorio_activo,
 )
@@ -51,7 +52,7 @@ def ingresar(datos: SolicitudIngreso, solicitud: Request):
     if not validar_directorio_activo(datos.nombre_usuario, datos.clave):
         raise HTTPException(status_code=401, detail="Credenciales invalidas")
 
-    usuario = asegurar_usuario(datos.nombre_usuario)
+    usuario = asegurar_usuario(normalizar_nombre_usuario(datos.nombre_usuario))
     registrar_auditoria(solicitud, usuario["nombre_usuario"], "INGRESO", "autenticacion")
     return {"llave_sesion": crear_llave_sesion(usuario), "usuario": usuario}
 
