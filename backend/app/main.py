@@ -67,18 +67,28 @@ def obtener_panel(usuario=Depends(usuario_actual)):
         """
         SELECT
             COUNT(*) FILTER (WHERE fecha_acceso = CURRENT_DATE) AS ingresos_hoy,
-            COUNT(*) FILTER (WHERE fecha_acceso = CURRENT_DATE AND estado = 'DENTRO') AS dentro_centro_datos,
-            COUNT(*) FILTER (WHERE fecha_acceso = CURRENT_DATE AND estado = 'SALIO') AS salidas_hoy,
-            COUNT(*) FILTER (WHERE fecha_acceso = CURRENT_DATE AND estado = 'PENDIENTE') AS pendientes_salida
+            COUNT(*) FILTER (WHERE hora_salida IS NULL) AS dentro_centro_datos,
+            COUNT(*) FILTER (WHERE fecha_acceso = CURRENT_DATE AND hora_salida IS NOT NULL) AS salidas_hoy,
+            COUNT(*) FILTER (WHERE hora_salida IS NULL) AS pendientes_salida,
+            COUNT(*) FILTER (
+                WHERE fecha_acceso >= DATE_TRUNC('month', CURRENT_DATE)::date
+                  AND fecha_acceso < (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::date
+            ) AS ingresos_mes,
+            COUNT(DISTINCT COALESCE(NULLIF(documento_visitante, ''), nombres_visitante))
+                FILTER (WHERE fecha_acceso = CURRENT_DATE) AS personas_hoy
         FROM registros_acceso
         """
     )
     recientes = fetch_all(
         """
-        SELECT id, codigo, nombres_visitante, documento_visitante, empresa_o_area,
-               hora_ingreso, hora_salida, estado
+        SELECT id, codigo, fecha_acceso, nombres_visitante, documento_visitante, empresa_o_area,
+               motivo_acceso, observaciones, hora_ingreso, hora_salida,
+               CASE WHEN hora_salida IS NULL THEN 'PENDIENTE_SALIDA' ELSE 'SALIO' END AS estado,
+               fecha_creacion, fecha_actualizacion,
+               COALESCE(fecha_actualizacion, fecha_creacion) AS fecha_movimiento
         FROM registros_acceso
-        ORDER BY fecha_creacion DESC
+        WHERE COALESCE(fecha_actualizacion, fecha_creacion) >= NOW() - INTERVAL '24 hours'
+        ORDER BY fecha_movimiento DESC, id DESC
         LIMIT 6
         """
     )

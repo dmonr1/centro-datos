@@ -9,7 +9,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/assets/css/styles.css?v=20260818-listado-edicion">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=20260820-fab-expansion">
+  <!-- Chart and export libs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -70,10 +75,10 @@
         </aside>
       </div>
       <nav class="side-nav">
-        <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Panel Control</span></button>
-        <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-id-card-clip"></i><span>Visitantes</span></button>
-        <button class="nav-item" data-screen="listado"><i class="fa-solid fa-list-check"></i><span>Listado</span></button>
-        <button class="nav-item" data-screen="records"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Consulta</span></button>
+        <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Inicio</span></button>
+        <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-id-card-clip"></i><span>Registrar Acceso</span></button>
+        <button class="nav-item" data-screen="historial"><i class="fa-solid fa-clock-rotate-left"></i><span>Historial de Accesos</span></button>
+        <button class="nav-item" data-screen="reportes"><i class="fa-solid fa-chart-simple"></i><span>Reportes</span></button>
       </nav>
       <div class="sidebar-footer">
         <button id="logoutBtn" class="nav-item logout-item"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Cerrar Sesion</span></button>
@@ -83,75 +88,135 @@
     <section class="content-shell">
       <header class="topbar">
         <div>
-          <p id="topContext" class="top-context">Panel Control</p>
+          <p id="topContext" class="top-context">Inicio</p>
           <h2 id="pageTitle">Resumen de Actividad</h2>
         </div>
         <div class="top-actions">
           <span class="datetime-pill"><i class="fa-regular fa-clock"></i><span id="fechaHoraActual">--/--/---- --:--:--</span></span>
-          <span class="user-pill"><i class="fa-regular fa-circle-user"></i><span id="topUser">Usuario Administrativo</span></span>
+          <div class="help-container">
+            <button id="helpBtn" class="help-button" type="button" aria-haspopup="true" aria-expanded="false" title="Ayuda">
+              <i class="fa-solid fa-circle-question"></i>
+            </button>
+            <div id="helpDropdown" class="help-dropdown" aria-hidden="true">
+              <strong>¿Qué hace el sistema?</strong>
+              <p>Este sistema registra y administra los accesos al Centro de Datos: ingresos, salidas y control de visitantes.</p>
+              <p>Para consultas, escriba a <a href="mailto:soporte_ogtic@@presidencia.gob.pe">soporte_ogtic@@presidencia.gob.pe</a> o llame al anexo <strong>4444</strong></p>
+              <small>Ejemplo: use el correo para dudas y el anexo para llamadas internas.</small>
+            </div>
+          </div>
         </div>
       </header>
 
       <section id="screen-dashboard" class="screen active">
         <div class="metric-grid">
           <article class="metric-card">
-            <span>Ingresos Registrados</span>
-            <strong id="metricTotal">0</strong>
+            <span>Accesos de hoy</span>
+            <strong id="metricToday">0</strong>
             <small>Hoy</small>
             <i class="fa-solid fa-arrow-right-to-bracket"></i>
           </article>
-          <article class="metric-card accent">
+          <article class="metric-card">
             <span>Dentro del DC</span>
             <strong id="metricInside">0</strong>
             <small>Activos ahora</small>
             <i class="fa-solid fa-server"></i>
           </article>
+          <article class="metric-card accent">
+            <span>Accesos del mes</span>
+            <strong id="metricMonth">0</strong>
+            <small>Mes actual</small>
+            <i class="fa-solid fa-calendar-days"></i>
+          </article>
           <article class="metric-card">
-            <span>Salidas Registradas</span>
-            <strong id="metricExits">0</strong>
+            <span>Personas/proveedores hoy</span>
+            <strong id="metricPeopleToday">0</strong>
             <small>Hoy</small>
-            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <i class="fa-solid fa-users"></i>
           </article>
           <article class="metric-card warn">
-            <span>Pendientes Salida</span>
+            <span>Registros pendientes</span>
             <strong id="metricPending">0</strong>
-            <small>Requieren verificacion</small>
+            <small>Pendientes de salida</small>
             <i class="fa-regular fa-clock"></i>
           </article>
         </div>
 
-        <h3 class="section-title">Accesos Rapidos</h3>
-        <div class="quick-grid">
-          <button class="quick-card primary-card" data-screen="newRecord"><i class="fa-solid fa-user-plus"></i><span>Nuevo Registro</span></button>
-          <button class="quick-card" data-screen="listado"><i class="fa-regular fa-rectangle-list"></i><span>Listado de registros</span></button>
-          <button class="quick-card" data-screen="records"><i class="fa-solid fa-magnifying-glass"></i><span>Buscar Registros</span></button>
-          <button class="quick-card"><i class="fa-solid fa-download"></i><span>Exportar Reporte</span></button>
+        <div class="dashboard-grid">
+          <div class="dash-card chart-card">
+            <h4>Ingresos de hoy</h4>
+            <canvas id="chartHourlyToday"></canvas>
+          </div>
+          <div class="dash-card chart-card">
+            <h4>Accesos últimos 7 días</h4>
+            <canvas id="chart7Days"></canvas>
+          </div>
+          <div class="dash-card movements-card">
+            <h4>Últimos movimientos</h4>
+            <div id="recentMovements" class="recent-movements-list"></div>
+          </div>
+        </div>
+        <!-- Tabla de 'Últimos accesos registrados' eliminada según solicitud -->
+
+        <!-- Accesos rápidos eliminados según solicitud -->
+      </section>
+
+        <!-- small-panel-row removed: 'Tipo de visitante' chart removed, recentMovements moved into dashboard grid -->
+
+      <section id="screen-reportes" class="screen">
+        <form id="reportFilterForm" class="filter-panel">
+          <strong><i class="fa-solid fa-filter"></i>Filtros para Reportes</strong>
+          <div class="form-grid three">
+            <label><span>Desde</span><input name="fecha_desde" type="date"></label>
+            <label><span>Hasta</span><input name="fecha_hasta" type="date"></label>
+            <label><span>Área / Empresa</span><input name="empresa_o_area" placeholder="Ej. Oficina Central"></label>
+            <label><span>Motivo</span><input name="motivo_acceso" placeholder="Ej. Mantenimiento"></label>
+            <label><span>Personal OGTIC</span><input name="personal_ogitic" placeholder="Ej. Perez"></label>
+            <div class="report-actions">
+              <button class="btn primary" id="runReportsBtn" type="button"><i class="fa-solid fa-chart-simple"></i>Generar</button>
+              <button id="exportXlsBtn" class="btn ghost" type="button"><i class="fa-solid fa-file-excel"></i>Exportar a Excel</button>
+              <button id="exportPdfBtn" class="btn ghost" type="button"><i class="fa-solid fa-file-pdf"></i>Exportar a PDF</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="report-grid">
+          <div class="report-card">
+            <h4>Accesos por motivo</h4>
+            <canvas id="chartMotivo"></canvas>
+          </div>
+          <div class="report-card">
+            <h4>Accesos por Área / Empresa</h4>
+            <canvas id="chartArea"></canvas>
+          </div>
+          <div class="report-card">
+            <h4>Accesos por rango horario (hora)</h4>
+            <canvas id="chartHorario"></canvas>
+          </div>
+          <div class="report-card">
+            <h4>Duración de accesos</h4>
+            <canvas id="chartDuracion"></canvas>
+          </div>
+          <div class="report-card">
+            <h4>Evolución mensual</h4>
+            <canvas id="chartMes"></canvas>
+          </div>
+          <div class="report-card">
+            <h4>Accesos por personal OGTIC</h4>
+            <canvas id="chartOgitic"></canvas>
+          </div>
         </div>
 
-        <h3 class="section-title">Actividad Reciente</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Visitante</th>
-                <th>DNI/ID</th>
-                <th>Empresa / Area</th>
-                <th>Hora Ingreso</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody id="recentRows"></tbody>
-          </table>
+        <div class="report-indicator">
+          <strong id="regObservationsCount">0</strong>
+          <span>Registros con observaciones</span>
         </div>
       </section>
 
       <section id="screen-newRecord" class="screen">
         <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Formulario de Ingreso</h2>
-              <p>Complete los datos para autorizar el acceso a las instalaciones.</p>
-            </div>
+          <div class="panel-head panel-head-centered">
+            <button id="backFromForm" class="btn icon-only back-icon" type="button" title="Volver"><i class="fa-solid fa-arrow-left"></i></button>
+            <h2 class="panel-title">Formulario de Ingreso</h2>
           </div>
           <form id="recordForm" class="record-form">
             <fieldset>
@@ -173,7 +238,7 @@
             </fieldset>
 
             <fieldset>
-              <legend><i class="fa-solid fa-user"></i>Datos del Visitante</legend>
+              <legend><i class="fa-solid fa-user"></i>Registrar Acceso</legend>
               <div class="form-grid">
                 <label class="span-2"><span>Nombres y Apellidos</span><input name="nombres_visitante" required placeholder="Ingrese nombres completos"></label>
                 <label><span>DNI / Documento</span><input name="documento_visitante" placeholder="Ej. 12345678"></label>
@@ -188,6 +253,7 @@
                   <option>Auditoria</option>
                   <option>Otro</option>
                 </select></label>
+                <label class="span-2 motivo-otro-wrapper hidden"><span>Especifique motivo</span><input name="motivo_acceso_custom" id="motivoCustomField" placeholder="Describa el motivo"></label>
               </div>
             </fieldset>
 
@@ -239,27 +305,21 @@
         </div>
       </section>
 
-      <section id="screen-records" class="screen">
-        <div class="screen-head">
-          <div>
-            <h2>Busqueda y Reportes</h2>
-            <p>Consulte el historial de accesos y genere reportes detallados.</p>
-          </div>
-          <div class="report-actions">
-            <button class="btn ghost"><i class="fa-regular fa-file-excel"></i>Excel</button>
-            <button class="btn ghost"><i class="fa-regular fa-file-pdf"></i>PDF</button>
-            <button class="btn ghost"><i class="fa-solid fa-print"></i>Imprimir</button>
-          </div>
-        </div>
+      <section id="screen-historial" class="screen">
+        
 
         <form id="filterForm" class="filter-panel">
-          <strong><i class="fa-solid fa-filter"></i>Filtros de Busqueda</strong>
+          <strong><i class="fa-solid fa-filter"></i>Filtros de Búsqueda</strong>
           <div class="form-grid three">
             <label><span>Desde</span><input name="fecha_desde" type="date"></label>
             <label><span>Hasta</span><input name="fecha_hasta" type="date"></label>
-            <label><span>Nombre / DNI / Empresa</span><input name="busqueda" placeholder="Ej. Juan Perez"></label>
+            <label><span>Nombre / DNI</span><input name="busqueda" placeholder="Ej. Juan Perez"></label>
+            <label><span>Área / Empresa</span><input name="empresa_o_area" placeholder="Ej. Oficina Central"></label>
+            <label><span>Motivo</span><input name="motivo_acceso" placeholder="Ej. Mantenimiento"></label>
+            <label><span>Personal OGTIC</span><input name="personal_ogitic" placeholder="Ej. Perez"></label>
             <label><span>Estado</span><select name="estado"><option value="">Todos</option><option>DENTRO</option><option>SALIO</option><option>PENDIENTE</option></select></label>
             <button class="btn primary search-btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i>Buscar</button>
+            <button id="exportBtn" class="btn ghost export-btn" type="button" title="Exportar CSV"><i class="fa-solid fa-file-export"></i>Exportar</button>
           </div>
         </form>
 
@@ -267,48 +327,20 @@
           <table>
             <thead>
               <tr>
-                <th>Codigo</th>
+                <th>N°</th>
                 <th>Fecha</th>
-                <th>Visitante</th>
-                <th>Documento</th>
-                <th>Empresa / Area</th>
+                <th>Usuario / Proveedor</th>
+                <th>Área / Empresa</th>
                 <th>Motivo</th>
-                <th>Ingreso</th>
-                <th>Salida</th>
-                <th>Estado</th>
-                <th>Accion</th>
-              </tr>
-            </thead>
-            <tbody id="recordList"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section id="screen-listado" class="screen">
-        <div class="screen-head">
-          <div>
-            <h2>Listado de Registros</h2>
-            <p>Revise todos los accesos registrados y edite la informacion cuando sea necesario.</p>
-          </div>
-          <button class="btn primary-list" data-screen="newRecord"><i class="fa-solid fa-plus"></i>Nuevo Registro</button>
-        </div>
-
-        <div class="table-wrap consulta-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Codigo</th>
-                <th>Fecha</th>
-                <th>Visitante</th>
-                <th>Documento</th>
-                <th>Empresa / Area</th>
-                <th>Ingreso</th>
-                <th>Salida</th>
+                <th>Hora Ingreso</th>
+                <th>Hora Salida</th>
+                <th>Personal OGTIC</th>
+                <th>Observaciones</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
-            <tbody id="allRecordList"></tbody>
+            <tbody id="historialList"></tbody>
           </table>
         </div>
       </section>
@@ -327,13 +359,19 @@
 
     </section>
 
-    <nav class="mobile-toolbar">
-      <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Panel</span></button>
+      <nav class="mobile-toolbar">
+      <button class="nav-item active" data-screen="dashboard"><i class="fa-solid fa-table-cells-large"></i><span>Inicio</span></button>
       <button class="nav-item" data-screen="newRecord"><i class="fa-solid fa-square-plus"></i><span>Registrar</span></button>
-      <button class="nav-item" data-screen="listado"><i class="fa-solid fa-list-check"></i><span>Listado</span></button>
-      <button class="nav-item" data-screen="records"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Consulta</span></button>
+      <button class="nav-item" data-screen="historial"><i class="fa-solid fa-clock-rotate-left"></i><span>Historial</span></button>
+      <button class="nav-item" data-screen="reportes"><i class="fa-solid fa-chart-simple"></i><span>Reportes</span></button>
     </nav>
   </main>
+
+  <!-- Floating action button: Nuevo Registro (visible solo en Inicio) -->
+  <button id="fabNewRecord" class="fab-new-record hidden" type="button" title="Nuevo Registro" aria-label="Nuevo Registro">
+      <i class="fa-solid fa-plus"></i>
+      <span class="fab-label">Nuevo Registro</span>
+  </button>
 
   <div id="signatureModal" class="signature-modal hidden" aria-hidden="true">
     <div class="signature-dialog" role="dialog" aria-modal="true" aria-labelledby="signatureModalTitle">
@@ -365,6 +403,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="/assets/js/app.js?v=20260818-listado-edicion"></script>
+  <script src="/assets/js/app.js?v=20260820-fab-expansion"></script>
 </body>
 </html>
