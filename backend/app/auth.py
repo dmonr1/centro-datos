@@ -1,15 +1,18 @@
 from datetime import datetime, timedelta, timezone
+import logging
 from typing import Annotated
 
 import jwt
 from fastapi import Header, HTTPException, Request, status
-from ldap3 import ALL, Connection, Server
+from ldap3 import ALL, SUBTREE, Connection, Server
+from ldap3.utils.conv import escape_filter_chars
 
 from .config import settings
 from .database import execute, fetch_one
 
 
 HORAS_DURACION_SESION = 8
+logger = logging.getLogger("uvicorn.error")
 
 
 def normalizar_nombre_usuario(nombre_usuario: str) -> str:
@@ -33,22 +36,79 @@ def candidatos_usuario_directorio(nombre_usuario: str) -> list[str]:
     return list(dict.fromkeys(candidatos))
 
 
+def buscar_dn_usuario(servidor: Server, nombre_usuario: str) -> tuple[str | None, str]:
+    if not settings.ldap_bind_user or not settings.ldap_bind_password or not settings.ldap_base_dn:
+        return None, "Busqueda DN omitida: falta LDAP_BIND_USER, LDAP_BIND_PASSWORD o LDAP_BASE_DN"
+
+    login = normalizar_nombre_usuario(nombre_usuario)
+    filtro = settings.ldap_user_filter.format(login=escape_filter_chars(login))
+
+    with Connection(
+        servidor,
+        user=settings.ldap_bind_user,
+        password=settings.ldap_bind_password,
+        auto_bind=True,
+    ) as conexion:
+        if not conexion.search(
+            search_base=settings.ldap_base_dn,
+            search_filter=filtro,
+            search_scope=SUBTREE,
+            attributes=["distinguishedName"],
+            size_limit=1,
+        ):
+            descripcion = conexion.result.get("description", "sin descripcion")
+            mensaje = conexion.result.get("message", "")
+            return None, f"Busqueda LDAP sin resultado: {descripcion} {mensaje}".strip()
+        if not conexion.entries:
+            return None, f"Usuario no encontrado con base '{settings.ldap_base_dn}' y filtro '{filtro}'"
+        return conexion.entries[0].entry_dn, "Usuario encontrado por busqueda LDAP"
+
+
+def rechazar_validacion(motivo: str) -> bool:
+    logger.warning("Validacion LDAP rechazada: %s", motivo)
+    if settings.ad_show_exceptions:
+        raise HTTPException(status_code=401, detail=motivo)
+    return False
+
+
 def validar_directorio_activo(nombre_usuario: str, clave: str) -> bool:
     usuario_normalizado = normalizar_nombre_usuario(nombre_usuario)
     if settings.usuarios_permitidos and usuario_normalizado not in settings.usuarios_permitidos:
-        return False
+        return rechazar_validacion(
+            f"Usuario '{usuario_normalizado}' no esta en USUARIOS_PERMITIDOS"
+        )
 
     if not settings.ldap_enabled:
-        return clave == "admin"
+        if clave == "admin":
+            return True
+        return rechazar_validacion("LDAP deshabilitado: solo se acepta la clave de prueba")
 
     try:
         servidor = Server(settings.ad_url, get_info=ALL)
+        dn_usuario, resultado_busqueda = buscar_dn_usuario(servidor, nombre_usuario)
+        if dn_usuario:
+            conexion = Connection(servidor, user=dn_usuario, password=clave, auto_bind=False)
+            if conexion.bind():
+                return True
+            descripcion = conexion.result.get("description", "sin descripcion")
+            mensaje = conexion.result.get("message", "")
+            return rechazar_validacion(
+                f"Bind fallido para DN encontrado: {descripcion} {mensaje}".strip()
+            )
+
+        errores_bind = []
         for usuario_directorio in candidatos_usuario_directorio(nombre_usuario):
             conexion = Connection(servidor, user=usuario_directorio, password=clave, auto_bind=False)
             if conexion.bind():
                 return True
-        return False
+            descripcion = conexion.result.get("description", "sin descripcion")
+            mensaje = conexion.result.get("message", "")
+            errores_bind.append(f"{usuario_directorio}: {descripcion} {mensaje}".strip())
+        return rechazar_validacion(
+            f"{resultado_busqueda}. Bind directo fallido: {' | '.join(errores_bind)}"
+        )
     except Exception as exc:
+        logger.exception("Error AD/LDAP durante validacion")
         if settings.ad_show_exceptions:
             raise HTTPException(status_code=502, detail=f"Error AD/LDAP: {exc}") from exc
         return False

@@ -42,12 +42,12 @@ class Settings:
         if usuario.strip()
     }
 
-    ad_host = env_value("AD_HOST", "app.ad.host", default="localhost")
-    ad_port = env_value("AD_PORT", "app.ad.port", default="389")
+    ad_host = env_value("AD_HOST", "app.ad.host", "LDAP_HOST", default="localhost")
+    ad_port = env_value("AD_PORT", "app.ad.port", "LDAP_PORT", default="389")
     ad_domain = env_value("AD_DOMAIN", "app.ad.domain", "LDAP_DOMAIN", default="")
     ad_search_user_base = env_value("AD_SEARCH_USER_BASE", "app.ad.search-user-base", "LDAP_BASE_DN", default="")
     ad_search_group_base = env_value("AD_SEARCH_GROUP_BASE", "app.ad.search-group-base", default="")
-    ad_secure_ldap = env_bool("AD_SECURE_LDAP", "app.ad.secure-ldap", default=False)
+    ad_secure_ldap = env_bool("AD_SECURE_LDAP", "app.ad.secure-ldap", "LDAP_USE_SSL", default=False)
     ad_security_protocol = env_value("AD_SECURITY_PROTOCOL", "app.ad.security-protocol", default="ssl")
     ad_validation_enabled = env_bool("AD_VALIDATION_ENABLED", "app.ad.validation-enabled", "LDAP_ENABLED", default=False)
     ad_show_exceptions = env_bool("AD_SHOW_EXCEPTIONS", "app.ad.show-exceptions", default=False)
@@ -56,6 +56,9 @@ class Settings:
     ldap_server = env_value("LDAP_SERVER", default="")
     ldap_domain = ad_domain
     ldap_base_dn = ad_search_user_base
+    ldap_bind_user = env_value("LDAP_BIND_USER", "AD_BIND_USER", default="")
+    ldap_bind_password = env_value("LDAP_BIND_PASSWORD", "AD_BIND_PASSWORD", default="")
+    ldap_user_filter = env_value("LDAP_USER_FILTER", "AD_USER_FILTER", default="(sAMAccountName={login})")
 
     @property
     def ad_url(self) -> str:

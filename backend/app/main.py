@@ -62,6 +62,23 @@ def obtener_usuario_actual(usuario=Depends(usuario_actual)):
     return usuario
 
 
+@app.get("/api/diagnostico/ldap")
+def diagnosticar_ldap():
+    if not settings.ad_show_exceptions:
+        raise HTTPException(status_code=404, detail="No encontrado")
+
+    return {
+        "ldap_enabled": settings.ldap_enabled,
+        "ad_url": settings.ad_url,
+        "ldap_domain": settings.ldap_domain,
+        "ldap_base_dn": settings.ldap_base_dn,
+        "ldap_bind_user_configurado": bool(settings.ldap_bind_user),
+        "ldap_bind_password_configurado": bool(settings.ldap_bind_password),
+        "ldap_user_filter": settings.ldap_user_filter,
+        "usuarios_permitidos": sorted(settings.usuarios_permitidos),
+    }
+
+
 @app.get("/api/panel")
 def obtener_panel(usuario=Depends(usuario_actual)):
     resumen = fetch_one(
@@ -71,6 +88,17 @@ def obtener_panel(usuario=Depends(usuario_actual)):
             COUNT(*) FILTER (WHERE hora_salida IS NULL) AS dentro_centro_datos,
             COUNT(*) FILTER (WHERE fecha_acceso = CURRENT_DATE AND hora_salida IS NOT NULL) AS salidas_hoy,
             COUNT(*) FILTER (WHERE hora_salida IS NULL) AS pendientes_salida,
+            COUNT(*) FILTER (
+                WHERE fecha_acceso = CURRENT_DATE
+                  AND observaciones IS NOT NULL
+                  AND BTRIM(observaciones) <> ''
+            ) AS observaciones_hoy,
+            COALESCE(
+                ROUND(AVG(EXTRACT(EPOCH FROM (hora_salida - hora_ingreso)) / 60)
+                    FILTER (WHERE fecha_acceso = CURRENT_DATE AND hora_salida IS NOT NULL)
+                ),
+                0
+            )::int AS tiempo_promedio_hoy,
             COUNT(*) FILTER (
                 WHERE fecha_acceso >= DATE_TRUNC('month', CURRENT_DATE)::date
                   AND fecha_acceso < (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::date
@@ -86,14 +114,24 @@ def obtener_panel(usuario=Depends(usuario_actual)):
                motivo_acceso, observaciones, hora_ingreso, hora_salida,
                CASE WHEN hora_salida IS NULL THEN 'PENDIENTE_SALIDA' ELSE 'SALIO' END AS estado,
                fecha_creacion, fecha_actualizacion,
-               COALESCE(fecha_actualizacion, fecha_creacion) AS fecha_movimiento
+               (fecha_acceso + COALESCE(hora_salida, hora_ingreso)) AS fecha_movimiento
         FROM registros_acceso
-        WHERE COALESCE(fecha_actualizacion, fecha_creacion) >= NOW() - INTERVAL '24 hours'
+        WHERE (fecha_acceso + COALESCE(hora_salida, hora_ingreso)) >= NOW() - INTERVAL '24 hours'
         ORDER BY fecha_movimiento DESC, id DESC
         LIMIT 6
         """
     )
-    return {"resumen": resumen, "recientes": recientes}
+    dentro_actualmente = fetch_all(
+        """
+        SELECT id, codigo, fecha_acceso, nombres_visitante, documento_visitante, empresa_o_area,
+               area_destino, motivo_acceso, hora_ingreso, fecha_creacion
+        FROM registros_acceso
+        WHERE hora_salida IS NULL
+        ORDER BY fecha_acceso DESC, hora_ingreso DESC, id DESC
+        LIMIT 6
+        """
+    )
+    return {"resumen": resumen, "recientes": recientes, "dentro_actualmente": dentro_actualmente}
 
 
 @app.get("/api/registros-acceso")
@@ -124,7 +162,7 @@ def listar_registros(
         f"""
         SELECT id, codigo, fecha_acceso, nombres_visitante, documento_visitante,
                empresa_o_area, area_destino, motivo_acceso, hora_ingreso,
-               hora_salida, personal_ogitic, estado, fecha_creacion
+               hora_salida, personal_ogitic, observaciones, estado, fecha_creacion
         FROM registros_acceso
         WHERE {' AND '.join(condiciones)}
         ORDER BY fecha_acceso DESC, hora_ingreso DESC, id DESC
@@ -136,38 +174,7 @@ def listar_registros(
 
 @app.post("/api/registros-acceso")
 def crear_registro(datos: RegistroAccesoEntrada, solicitud: Request, usuario=Depends(usuario_actual)):
-    estado = "SALIO" if datos.hora_salida else "DENTRO"
-    creado = execute(
-        """
-        INSERT INTO registros_acceso (
-            codigo, fecha_acceso, nombres_visitante, documento_visitante, empresa_o_area,
-            area_destino, motivo_acceso, hora_ingreso, hora_salida, personal_ogitic,
-            observaciones, estado, creado_por
-        )
-        VALUES (
-            'ACC-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(nextval('secuencia_codigo_acceso')::text, 6, '0'),
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-        )
-        RETURNING id, codigo
-        """,
-        (
-            datos.fecha_acceso,
-            datos.nombres_visitante,
-            datos.documento_visitante,
-            datos.empresa_o_area,
-            datos.area_destino,
-            datos.motivo_acceso,
-            datos.hora_ingreso,
-            datos.hora_salida,
-            datos.personal_ogitic,
-            datos.observaciones,
-            estado,
-            usuario["nombre_usuario"],
-        ),
-    )
-    registrar_auditoria(solicitud, usuario["nombre_usuario"], "CREAR", "registros_acceso", creado["id"])
-    return obtener_registro(creado["id"], usuario)
-
+    estado = "SALIO"
 
 @app.patch("/api/registros-acceso/{registro_id}")
 def actualizar_registro(
