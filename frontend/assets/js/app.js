@@ -758,7 +758,10 @@ function drawLine(id, dataPairs, existingChart) {
   });
 }
 
-function generateColors(n) { const palette = ['#e6f2ff','#cfe9ff','#9fd7ff','#66baff','#3399ff','#0077e6','#005bb5','#003f7a']; return Array.from({length:n}, (_,i)=>palette[i%palette.length]); }
+function generateColors(n) {
+  const palette = ['#4285f4', '#34a853', '#fbbc05', '#ff7043', '#ea4335', '#8e63ce'];
+  return Array.from({ length: n }, (_, i) => palette[i % palette.length]);
+}
 
 function shadeColor(hex, percent) {
   try {
@@ -1690,6 +1693,7 @@ $("#recordForm").addEventListener("submit", async (evento) => {
     const rutaRegistro = editando ? `/registros-acceso/${editando.id}` : "/registros-acceso";
     const metodoRegistro = editando ? "PATCH" : "POST";
     const registro = await consultarApi(rutaRegistro, { method: metodoRegistro, body: JSON.stringify(datos) });
+    if (!registro?.id) throw new Error("El registro se guardo, pero el servidor no devolvio el detalle del registro");
     if ((firmaVisitante && firmaVisitante.size) || (firmaOgitic && firmaOgitic.size)) {
       const firmas = new FormData();
       if (firmaVisitante && firmaVisitante.size) firmas.append("firma_visitante", firmaVisitante);

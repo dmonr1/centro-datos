@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/assets/css/styles.css?v=20260820-historial-cards">
+  <link rel="stylesheet" href="/assets/css/styles.css?v=20260820-donut-colors">
   <!-- Chart and export libs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -57,7 +57,7 @@
     <aside class="sidebar">
       <div class="side-brand">
         <div class="brand-text">
-          <span>DIAG</span>
+          <span>CONTROL DE ACCESO</span>
           <small>Centro de Datos</small>
         </div>
         <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Expandir o contraer menu">
@@ -112,28 +112,36 @@
       <section id="screen-dashboard" class="screen active">
         <div class="metric-grid">
           <article class="metric-card">
-            <span>Personal dentro</span>
+            <div class="metric-head">
+              <i class="fa-solid fa-users-viewfinder"></i>
+              <span>Personal dentro</span>
+            </div>
             <strong id="metricInside">0</strong>
             <small>Actualmente</small>
-            <i class="fa-solid fa-users-viewfinder"></i>
           </article>
           <article class="metric-card accent">
-            <span>Ingresos hoy</span>
+            <div class="metric-head">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i>
+              <span>Ingresos hoy</span>
+            </div>
             <strong id="metricToday">0</strong>
             <small>Registros del día</small>
-            <i class="fa-solid fa-arrow-right-to-bracket"></i>
           </article>
           <article class="metric-card">
-            <span>Tiempo promedio</span>
+            <div class="metric-head">
+              <i class="fa-regular fa-clock"></i>
+              <span>Tiempo promedio</span>
+            </div>
             <strong id="metricAvgTime">0 min</strong>
             <small>Accesos cerrados hoy</small>
-            <i class="fa-regular fa-clock"></i>
           </article>
           <article class="metric-card warn">
-            <span>Observaciones hoy</span>
+            <div class="metric-head">
+              <i class="fa-regular fa-note-sticky"></i>
+              <span>Observaciones hoy</span>
+            </div>
             <strong id="metricObservationsToday">0</strong>
             <small>Registros con detalle</small>
-            <i class="fa-regular fa-note-sticky"></i>
           </article>
         </div>
 
@@ -417,6 +425,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="/assets/js/app.js?v=20260820-historial-cards"></script>
+  <script src="/assets/js/app.js?v=20260820-donut-colors"></script>
 </body>
 </html>
